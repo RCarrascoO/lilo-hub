@@ -2,7 +2,7 @@ import io
 from telegram import Update
 from telegram.ext import ContextTypes
 from src.handlers.common import is_authorized
-from src.services.gemini_service import GeminiService
+from src.services.gemini_service import GeminiService, StructuredResponse
 from src.services.vault_service import VaultService
 from src.database.db import AsyncSessionLocal
 from src.database.models import CapturedNote
@@ -18,42 +18,47 @@ async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    wait_msg = await update.message.reply_text("🧠 Analizando pensamiento y estructurando nota...")
+    wait_msg = await update.message.reply_text("🧠 Pensando...")
 
     try:
-        structured_note = await gemini_service.process_text(text, user_id=user_id)
-        filepath = VaultService.save_note(structured_note, source_type="text")
+        parsed = await gemini_service.process_message(text=text, user_id=user_id)
 
-        # Registrar en la base de datos
-        async with AsyncSessionLocal() as session:
-            note_record = CapturedNote(
-                user_id=user_id,
-                title=structured_note.title,
-                filepath=filepath,
-                source_type="text",
-                summary=structured_note.summary
+        if parsed.save_to_vault and parsed.title:
+            # Guardar nota en Obsidian
+            filepath = VaultService.save_note(parsed, source_type="text")
+
+            async with AsyncSessionLocal() as session:
+                note_record = CapturedNote(
+                    user_id=user_id,
+                    title=parsed.title,
+                    filepath=filepath,
+                    source_type="text",
+                    summary=parsed.summary
+                )
+                session.add(note_record)
+                await session.commit()
+
+            tags_str = " ".join([f"#{t}" for t in parsed.tags])
+            tasks_preview = ""
+            if parsed.tasks:
+                tasks_preview = "\n\n**Tareas extraídas:**\n" + "\n".join([f"• [ ] {t}" for t in parsed.tasks])
+
+            reply = (
+                f"📥 **Guardado en Obsidian Inbox**\n\n"
+                f"📌 **Título:** {parsed.title}\n"
+                f"💡 **Resumen:** {parsed.summary}\n"
+                f"🏷️ **Tags:** {tags_str}"
+                f"{tasks_preview}\n\n"
+                f"_Sincronizado en tu bóveda._"
             )
-            session.add(note_record)
-            await session.commit()
-
-        # Responder al usuario con un resumen estilizado
-        tags_str = " ".join([f"#{t}" for t in structured_note.tags])
-        tasks_preview = ""
-        if structured_note.tasks:
-            tasks_preview = "\n\n**Tareas extraídas:**\n" + "\n".join([f"• [ ] {t}" for t in structured_note.tasks])
-
-        reply = (
-            f"📥 **Guardado en Obsidian Inbox**\n\n"
-            f"📌 **Título:** {structured_note.title}\n"
-            f"💡 **Resumen:** {structured_note.summary}\n"
-            f"🏷️ **Tags:** {tags_str}"
-            f"{tasks_preview}\n\n"
-            f"_Sincronizado en tu bóveda._"
-        )
-        await wait_msg.edit_text(reply, parse_mode="Markdown")
+            await wait_msg.edit_text(reply, parse_mode="Markdown")
+        else:
+            # Es una consulta o conversación (ej. sobre el servidor o estado)
+            answer = parsed.text_reply or parsed.spoken_reply or parsed.summary or "Entendido."
+            await wait_msg.edit_text(answer, parse_mode="Markdown")
 
     except Exception as e:
-        await wait_msg.edit_text(f"❌ Error al procesar la nota: {str(e)}")
+        await wait_msg.edit_text(f"❌ Error al procesar mensaje: {str(e)}")
 
 async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
@@ -64,7 +69,7 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = update.effective_user.id
-    wait_msg = await update.message.reply_text("🎙️ Escuchando y transcribiendo audio con Gemini...")
+    wait_msg = await update.message.reply_text("🎙️ Escuchando y procesando audio con Gemini...")
 
     try:
         file_obj = await context.bot.get_file(voice.file_id)
@@ -74,54 +79,57 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         mime = voice.mime_type or "audio/ogg"
 
-        await wait_msg.edit_text("🧠 Audio procesado. Estructurando nota de Obsidian...")
-        structured_note = await gemini_service.process_audio(audio_bytes, mime_type=mime, user_id=user_id)
-        filepath = VaultService.save_note(structured_note, source_type="voice")
+        parsed = await gemini_service.process_message(audio_bytes=audio_bytes, mime_type=mime, user_id=user_id)
 
-        # Registrar en la base de datos
-        async with AsyncSessionLocal() as session:
-            note_record = CapturedNote(
-                user_id=user_id,
-                title=structured_note.title,
-                filepath=filepath,
-                source_type="voice",
-                summary=structured_note.summary
+        if parsed.save_to_vault and parsed.title:
+            filepath = VaultService.save_note(parsed, source_type="voice")
+
+            async with AsyncSessionLocal() as session:
+                note_record = CapturedNote(
+                    user_id=user_id,
+                    title=parsed.title,
+                    filepath=filepath,
+                    source_type="voice",
+                    summary=parsed.summary
+                )
+                session.add(note_record)
+                await session.commit()
+
+            tags_str = " ".join([f"#{t}" for t in parsed.tags])
+            tasks_preview = ""
+            if parsed.tasks:
+                tasks_preview = "\n\n**Tareas extraídas:**\n" + "\n".join([f"• [ ] {t}" for t in parsed.tasks])
+
+            transcription_preview = ""
+            if parsed.transcription:
+                transcription_preview = f"\n\n_\"{parsed.transcription[:150]}...\"_"
+
+            reply = (
+                f"🎙️ **Nota de Voz Guardada en Obsidian**\n\n"
+                f"📌 **Título:** {parsed.title}\n"
+                f"💡 **Resumen:** {parsed.summary}\n"
+                f"🏷️ **Tags:** {tags_str}"
+                f"{transcription_preview}"
+                f"{tasks_preview}\n\n"
+                f"_Guardado en tu Obsidian Inbox._"
             )
-            session.add(note_record)
-            await session.commit()
+            await wait_msg.edit_text(reply, parse_mode="Markdown")
+        else:
+            # Respuesta a consulta interactiva (no satura Obsidian con notas basura)
+            answer_text = parsed.text_reply or parsed.spoken_reply or "Listo."
+            await wait_msg.edit_text(answer_text, parse_mode="Markdown")
 
-        tags_str = " ".join([f"#{t}" for t in structured_note.tags])
-        tasks_preview = ""
-        if structured_note.tasks:
-            tasks_preview = "\n\n**Tareas extraídas:**\n" + "\n".join([f"• [ ] {t}" for t in structured_note.tasks])
-
-        transcription_preview = ""
-        if structured_note.transcription:
-            transcription_preview = f"\n\n_\"{structured_note.transcription[:150]}...\"_"
-
-        reply = (
-            f"🎙️ **Nota de Voz Procesada y Guardada**\n\n"
-            f"📌 **Título:** {structured_note.title}\n"
-            f"💡 **Resumen:** {structured_note.summary}\n"
-            f"🏷️ **Tags:** {tags_str}"
-            f"{transcription_preview}"
-            f"{tasks_preview}\n\n"
-            f"_Guardado en tu Obsidian Inbox._"
-        )
-        await wait_msg.edit_text(reply, parse_mode="Markdown")
-
-        # DISCRIMINACIÓN INTELIGENTE DE VOZ:
-        # Solo sintetiza voz si Renato realmente hizo una consulta conversacional
-        if structured_note.is_conversational and structured_note.spoken_reply:
+        # Si requiere respuesta hablada, sintetizar voz con Gemini TTS y enviarla
+        if parsed.is_conversational and parsed.spoken_reply:
             try:
-                voice_wav = await gemini_service.generate_voice_audio(structured_note.spoken_reply, user_id=user_id)
+                voice_wav = await gemini_service.generate_voice_audio(parsed.spoken_reply, user_id=user_id)
                 wav_buffer = io.BytesIO(voice_wav)
                 wav_buffer.name = "lilo_reply.wav"
                 wav_buffer.seek(0)
                 await context.bot.send_voice(
                     chat_id=update.effective_chat.id,
                     voice=wav_buffer,
-                    caption=f"🗣️ {structured_note.spoken_reply}"
+                    caption=f"🗣️ {parsed.spoken_reply}"
                 )
             except Exception as tts_err:
                 print(f"Error generando audio TTS: {tts_err}")

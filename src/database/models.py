@@ -34,3 +34,13 @@ class TokenUsage(Base):
     completion_tokens = Column(Integer, default=0)
     total_tokens = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ChatMessage(Base):
+    """Historial de mensajes para mantener memoria conversacional activa en multi-turn."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)
+    role = Column(String(20), nullable=False) # 'user' o 'model'
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
