@@ -21,3 +21,16 @@ class CapturedNote(Base):
     source_type = Column(String(50), default="text") # text or voice
     summary = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class TokenUsage(Base):
+    """Registro mutable y auditable de consumo de tokens por modelo y función."""
+    __tablename__ = "token_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)
+    model_name = Column(String(100), nullable=False)
+    feature = Column(String(100), nullable=False)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    total_tokens = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -18,6 +18,8 @@ from src.handlers.common import start_command, help_command
 from src.handlers.wol_handlers import encender_pc_command, wol_callback_handler
 from src.handlers.system_handlers import server_command, server_callback_handler
 from src.handlers.notes_handlers import ultima_nota_command
+from src.handlers.token_handlers import tokens_command, tokens_callback_handler
+from src.handlers.pro_handlers import pro_command
 from src.handlers.inbox_handlers import handle_text_inbox, handle_voice_inbox
 
 logging.basicConfig(
@@ -27,9 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger("lilo-hub")
 
 async def post_init(application):
-    logger.info("Inicializando base de datos SQLite...")
+    logger.info("Inicializando base de datos SQLite y tablas...")
     await init_db()
-    logger.info("Base de datos inicializada correctamente.")
+    logger.info("Base de datos y tablas de telemetría inicializadas correctamente.")
 
 def main():
     logger.info("Iniciando Lilo Hub...")
@@ -46,21 +48,25 @@ def main():
     app.add_handler(CommandHandler(["encender_pc", "wol", "wake"], encender_pc_command))
     app.add_handler(CommandHandler(["server", "servidor", "status"], server_command))
     app.add_handler(CommandHandler(["nota", "ultima_nota"], ultima_nota_command))
+    app.add_handler(CommandHandler(["tokens", "consumo"], tokens_command))
+    app.add_handler(CommandHandler(["pro", "gemini_pro"], pro_command))
 
     # 2. Handlers para Botones del Teclado Inferior
     app.add_handler(MessageHandler(filters.Regex(r"^⚡ Encender PC$"), encender_pc_command))
     app.add_handler(MessageHandler(filters.Regex(r"^🖥️ Servidor$"), server_command))
     app.add_handler(MessageHandler(filters.Regex(r"^📓 Última Nota$"), ultima_nota_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^📊 Tokens IA$"), tokens_command))
     app.add_handler(MessageHandler(filters.Regex(r"^❓ Ayuda$"), help_command))
 
     # 3. Callbacks para Botones Inline (Bajo los mensajes)
     app.add_handler(CallbackQueryHandler(server_callback_handler, pattern=r"^refresh_server$"))
     app.add_handler(CallbackQueryHandler(wol_callback_handler, pattern=r"^wake_pc_inline$"))
+    app.add_handler(CallbackQueryHandler(tokens_callback_handler, pattern=r"^refresh_tokens$"))
 
     # 4. Captura inteligente de Inbox (Texto y Audio)
     # Excluye los textos que coinciden con los botones rápidos
     app.add_handler(MessageHandler(
-        filters.TEXT & (~filters.COMMAND) & (~filters.Regex(r"^(⚡ Encender PC|🖥️ Servidor|📓 Última Nota|❓ Ayuda)$")),
+        filters.TEXT & (~filters.COMMAND) & (~filters.Regex(r"^(⚡ Encender PC|🖥️ Servidor|📓 Última Nota|📊 Tokens IA|❓ Ayuda)$")),
         handle_text_inbox
     ))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice_inbox))

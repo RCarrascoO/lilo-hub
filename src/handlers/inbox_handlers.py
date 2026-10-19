@@ -17,16 +17,17 @@ async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
+    user_id = update.effective_user.id
     wait_msg = await update.message.reply_text("🧠 Analizando pensamiento y estructurando nota...")
 
     try:
-        structured_note = gemini_service.process_text(text)
+        structured_note = await gemini_service.process_text(text, user_id=user_id)
         filepath = VaultService.save_note(structured_note, source_type="text")
 
         # Registrar en la base de datos
         async with AsyncSessionLocal() as session:
             note_record = CapturedNote(
-                user_id=update.effective_user.id,
+                user_id=user_id,
                 title=structured_note.title,
                 filepath=filepath,
                 source_type="text",
@@ -62,6 +63,7 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not voice:
         return
 
+    user_id = update.effective_user.id
     wait_msg = await update.message.reply_text("🎙️ Escuchando y transcribiendo audio con Gemini...")
 
     try:
@@ -73,13 +75,13 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
         mime = voice.mime_type or "audio/ogg"
 
         await wait_msg.edit_text("🧠 Audio procesado. Estructurando nota de Obsidian...")
-        structured_note = gemini_service.process_audio(audio_bytes, mime_type=mime)
+        structured_note = await gemini_service.process_audio(audio_bytes, mime_type=mime, user_id=user_id)
         filepath = VaultService.save_note(structured_note, source_type="voice")
 
         # Registrar en la base de datos
         async with AsyncSessionLocal() as session:
             note_record = CapturedNote(
-                user_id=update.effective_user.id,
+                user_id=user_id,
                 title=structured_note.title,
                 filepath=filepath,
                 source_type="voice",
@@ -108,10 +110,11 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await wait_msg.edit_text(reply, parse_mode="Markdown")
 
-        # Si hay una respuesta hablada, generar nota de voz con Gemini TTS y enviarla
-        if structured_note.spoken_reply:
+        # DISCRIMINACIÓN INTELIGENTE DE VOZ:
+        # Solo sintetiza voz si Renato realmente hizo una consulta conversacional
+        if structured_note.is_conversational and structured_note.spoken_reply:
             try:
-                voice_wav = gemini_service.generate_voice_audio(structured_note.spoken_reply)
+                voice_wav = await gemini_service.generate_voice_audio(structured_note.spoken_reply, user_id=user_id)
                 wav_buffer = io.BytesIO(voice_wav)
                 wav_buffer.name = "lilo_reply.wav"
                 wav_buffer.seek(0)

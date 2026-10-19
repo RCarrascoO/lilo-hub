@@ -42,7 +42,10 @@ def format_server_message() -> tuple[str, InlineKeyboardMarkup]:
 
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🔄 Actualizar Métricas", callback_data="refresh_server"),
+            InlineKeyboardButton("🔄 Refrescar", callback_data="refresh_server"),
+            InlineKeyboardButton("📊 Ver Tokens", callback_data="refresh_tokens")
+        ],
+        [
             InlineKeyboardButton("⚡ Encender PC", callback_data="wake_pc_inline")
         ]
     ])
@@ -64,5 +67,4 @@ async def server_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     try:
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
     except Exception:
-        # Si las métricas no cambiaron, Telegram lanzará un error leve de 'message not modified'
         pass

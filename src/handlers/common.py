@@ -11,7 +11,8 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Retorna el teclado rápido persistente en la parte inferior del chat."""
     keyboard = [
         [KeyboardButton("⚡ Encender PC"), KeyboardButton("🖥️ Servidor")],
-        [KeyboardButton("📓 Última Nota"), KeyboardButton("❓ Ayuda")]
+        [KeyboardButton("📓 Última Nota"), KeyboardButton("📊 Tokens IA")],
+        [KeyboardButton("❓ Ayuda")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -25,11 +26,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👋 **¡Hola, {user_name}! Bienvenido a Lilo Hub.**\n\n"
         "Soy tu orquestador personal conectado al servidor 24/7 y a tu bóveda de Obsidian.\n\n"
         "⚡ **Accesos Rápidos (Botones):**\n"
-        "• Puedes usar los botones de abajo directamente sin escribir comandos.\n"
-        "• O si lo prefieres, escribir `/encender_pc`, `/server`, `/help`.\n\n"
-        "📥 **Captura Rápida Inteligente:**\n"
-        "• **Texto:** Escribe cualquier pensamiento y lo estructuraré en tu Obsidian Inbox.\n"
-        "• **Voz:** Mándame un audio caminando o manejando; transcribiré el audio y extraeré tareas y notas automáticamente."
+        "• Puedes usar los botones inferiores directamente sin escribir comandos.\n\n"
+        "🤖 **Modelos de IA Disponibles:**\n"
+        "• **Flash-Lite (Texto):** Captura notas e ideas ultra rápido y con costo casi nulo.\n"
+        "• **Flash Multimodal (Voz):** Transcribe notas de voz y responde por audio solo si le haces preguntas directas.\n"
+        "• **Gemini Pro:** Modo razonamiento profundo usando `/pro <consulta>`.\n"
+        "• **📊 Tokens IA:** Monitoreo en tiempo real de tu consumo de tokens.\n\n"
+        "📥 **Captura Rápida:**\n"
+        "• Simplemente escribe un texto o graba una nota de voz."
     )
     await update.message.reply_markdown(msg, reply_markup=get_main_keyboard())
 
