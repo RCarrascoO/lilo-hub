@@ -62,7 +62,7 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not voice:
         return
 
-    wait_msg = await update.message.reply_text("🎙️ Transcribiendo nota de voz con Gemini 2.5 Flash...")
+    wait_msg = await update.message.reply_text("🎙️ Escuchando y transcribiendo audio con Gemini...")
 
     try:
         file_obj = await context.bot.get_file(voice.file_id)
@@ -70,10 +70,9 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await file_obj.download_to_memory(audio_buffer)
         audio_bytes = audio_buffer.getvalue()
 
-        # Determinar mime_type (Telegram voice suele ser audio/ogg)
         mime = voice.mime_type or "audio/ogg"
 
-        await wait_msg.edit_text("🧠 Audio transcrito. Estructurando nota de Obsidian...")
+        await wait_msg.edit_text("🧠 Audio procesado. Estructurando nota de Obsidian...")
         structured_note = gemini_service.process_audio(audio_bytes, mime_type=mime)
         filepath = VaultService.save_note(structured_note, source_type="voice")
 
@@ -108,6 +107,21 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"_Guardado en tu Obsidian Inbox._"
         )
         await wait_msg.edit_text(reply, parse_mode="Markdown")
+
+        # Si hay una respuesta hablada, generar nota de voz con Gemini TTS y enviarla
+        if structured_note.spoken_reply:
+            try:
+                voice_wav = gemini_service.generate_voice_audio(structured_note.spoken_reply)
+                wav_buffer = io.BytesIO(voice_wav)
+                wav_buffer.name = "lilo_reply.wav"
+                wav_buffer.seek(0)
+                await context.bot.send_voice(
+                    chat_id=update.effective_chat.id,
+                    voice=wav_buffer,
+                    caption=f"🗣️ {structured_note.spoken_reply}"
+                )
+            except Exception as tts_err:
+                print(f"Error generando audio TTS: {tts_err}")
 
     except Exception as e:
         await wait_msg.edit_text(f"❌ Error al procesar audio: {str(e)}")

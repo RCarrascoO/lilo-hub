@@ -1,4 +1,5 @@
-import json
+import io
+import wave
 from typing import Optional
 from pydantic import BaseModel
 from google import genai
@@ -12,14 +13,14 @@ class StructuredNote(BaseModel):
     tasks: list[str]
     content_markdown: str
     transcription: Optional[str] = None
+    spoken_reply: Optional[str] = None
 
 class GeminiService:
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        # Model Tiering: Usamos modelos ultra ligeros y económicos para texto,
-        # y modelos multimodales estándar para procesamiento de audio.
         self.text_model = "gemini-3.5-flash-lite"
         self.audio_model = "gemini-2.5-flash"
+        self.tts_model = "gemini-2.5-flash-preview-tts"
 
     def process_text(self, text: str) -> StructuredNote:
         prompt = (
@@ -41,7 +42,6 @@ class GeminiService:
                 )
             )
         except Exception:
-            # Fallback en caso de indisponibilidad temporal de flash-lite
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
@@ -56,10 +56,12 @@ class GeminiService:
     def process_audio(self, audio_bytes: bytes, mime_type: str = "audio/ogg") -> StructuredNote:
         audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
         prompt = (
-            "Eres el asistente personal de Renato para su bóveda de Obsidian. "
-            "Escucha atentamente esta nota de voz. Realiza la transcripción exacta y luego "
-            "organízala en una nota estructurada: título conciso para el archivo, resumen, "
-            "etiquetas en minúsculas, tareas pendientes si se mencionan, y el cuerpo en Markdown claro."
+            "Eres Lilo Hub, el asistente de IA personal de Renato. "
+            "Escucha atentamente esta nota de voz. Realiza la transcripción exacta y organízala "
+            "en una nota estructurada para Obsidian: título, resumen, tags y tareas.\n"
+            "IMPORTANTE: En el campo 'spoken_reply', escribe una respuesta hablada, cercana, natural y concisa "
+            "(máximo 2 a 3 oraciones en español) respondiendo directamente a lo que Renato preguntó o conversó, "
+            "o confirmando afectuosamente lo que guardaste para él."
         )
         response = self.client.models.generate_content(
             model=self.audio_model,
@@ -67,7 +69,25 @@ class GeminiService:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=StructuredNote,
-                temperature=0.2
+                temperature=0.3
             )
         )
         return StructuredNote.model_validate_json(response.text)
+
+    def generate_voice_audio(self, text: str) -> bytes:
+        """Sintetiza texto a voz (TTS) con Gemini y devuelve bytes en formato WAV para Telegram."""
+        response = self.client.models.generate_content(
+            model=self.tts_model,
+            contents=text,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"]
+            )
+        )
+        pcm_data = response.candidates[0].content.parts[0].inline_data.data
+        wav_io = io.BytesIO()
+        with wave.open(wav_io, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(24000)
+            wav.writeframes(pcm_data)
+        return wav_io.getvalue()
