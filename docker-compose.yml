@@ -1,0 +1,31 @@
+services:
+  lilo_hub:
+    build: .
+    container_name: lilo_hub
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Santiago
+    volumes:
+      - ./data:/app/data
+      - /mnt/disco_1tb/obsidian_vault:/vault
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Santiago
+    volumes:
+      - /mnt/disco_1tb/syncthing_config:/config
+      - /mnt/disco_1tb/obsidian_vault:/data/obsidian_vault
+    ports:
+      - "8384:8384"
+      - "22000:22000/tcp"
+      - "22000:22000/udp"
+      - "21027:21027/udp"
