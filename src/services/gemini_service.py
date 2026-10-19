@@ -4,6 +4,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
 from src.config import settings
 from src.services.token_service import TokenService
 from src.services.system_service import SystemService
@@ -25,10 +26,11 @@ class StructuredResponse(BaseModel):
 class GeminiService:
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.text_model = "gemini-3.5-flash-lite"
-        self.audio_model = "gemini-2.5-flash"
-        self.pro_model = "gemini-2.5-pro"
-        self.tts_model = "gemini-2.5-flash-preview-tts"
+        # Piscinas de modelos con cascada automática para sortear límites de cuota (429)
+        self.text_models = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
+        self.audio_models = ["gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash"]
+        self.pro_models = ["gemini-2.5-pro", "gemini-pro-latest"]
+        self.tts_models = ["gemini-2.5-flash-preview-tts", "gemini-3.8-flash-tts"]
 
     async def _log_tokens(self, user_id: int, model: str, feature: str, response):
         try:
@@ -49,16 +51,16 @@ class GeminiService:
             print(f"Error registrando tokens: {e}")
 
     def _get_live_server_context(self) -> str:
-        """Obtiene una cadena resumida del estado del servidor para inyectar si se consulta."""
         try:
             m = SystemService.get_metrics()
             ram = m["ram"]
             containers_str = ", ".join([f"{c['name']} ({c['status']})" for c in m["containers"]])
+            disks_str = ", ".join([f"{d['name']}: {d['free_gb']}GB libres de {d['total_gb']}GB" for d in m["disks"]])
             return (
                 f"ESTADO DEL SERVIDOR SANEHOST EN VIVO:\n"
                 f"- CPU: {m['cpu_percent']}% ({m['cpu_count']} cores)\n"
                 f"- RAM: {ram['used_gb']} GB usados de {ram['total_gb']} GB ({ram['percent']}%), libres: {ram['free_gb']} GB\n"
-                f"- Discos: {m['disks'][0]['used_gb']} GB usados de {m['disks'][0]['total_gb']} GB ({m['disks'][0]['free_gb']} GB libres)\n"
+                f"- Discos: {disks_str}\n"
                 f"- Contenedores Docker activos: {containers_str}"
             )
         except Exception as e:
@@ -71,12 +73,7 @@ class GeminiService:
         mime_type: str = "audio/ogg",
         user_id: int = 0
     ) -> StructuredResponse:
-        """Procesa texto o audio manteniendo memoria de conversación e inyectando telemetría y contexto en vivo."""
-
-        # 1. Recuperar historial reciente
         recent_history = await ConversationService.get_recent_history(user_id=user_id, limit=6)
-
-        # 2. Contexto de herramientas en vivo
         server_ctx = self._get_live_server_context()
 
         system_instruction = (
@@ -94,12 +91,10 @@ class GeminiService:
         )
 
         contents = []
-        # Agregar historial previo si existe
         for turn in recent_history:
             contents.append(turn)
 
-        # Determinar contenido actual
-        used_model = self.audio_model if audio_bytes else self.text_model
+        candidate_models = self.audio_models if audio_bytes else self.text_models
         if audio_bytes:
             audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
             contents.append({
@@ -115,16 +110,38 @@ class GeminiService:
                 "parts": [{"text": text}]
             })
 
-        response = self.client.models.generate_content(
-            model=used_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=StructuredResponse,
-                temperature=0.2
-            )
-        )
+        response = None
+        last_error = None
+        used_model = candidate_models[0]
+
+        # Cascada de modelos ante límites de cuota (429) o errores temporales
+        for model_name in candidate_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        response_schema=StructuredResponse,
+                        temperature=0.2
+                    )
+                )
+                used_model = model_name
+                break
+            except ClientError as ce:
+                last_error = ce
+                if ce.code == 429:
+                    print(f"Cuota agotada en {model_name} (429). Probando siguiente modelo de la piscina...")
+                    continue
+                raise ce
+            except Exception as e:
+                last_error = e
+                print(f"Error con modelo {model_name}: {e}. Intentando fallback...")
+                continue
+
+        if not response:
+            raise RuntimeError(f"Todos los modelos de la piscina agotaron su cuota o fallaron: {last_error}")
 
         await self._log_tokens(user_id, used_model, "inbox_voice" if audio_bytes else "inbox_text", response)
         parsed = StructuredResponse.model_validate_json(response.text)
@@ -134,7 +151,6 @@ class GeminiService:
         if any(w in msg_str for w in ["enciende mi pc", "prende mi pc", "wake on lan", "inicia la pc"]):
             WOLService.wake_pc()
 
-        # Guardar en memoria conversacional
         user_content = parsed.transcription if audio_bytes else text
         if user_content:
             await ConversationService.add_message(user_id=user_id, role="user", content=user_content)
@@ -145,14 +161,27 @@ class GeminiService:
         return parsed
 
     async def generate_voice_audio(self, text: str, user_id: int = 0) -> bytes:
-        response = self.client.models.generate_content(
-            model=self.tts_model,
-            contents=text,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"]
-            )
-        )
-        await self._log_tokens(user_id, self.tts_model, "tts_voice_reply", response)
+        response = None
+        used_model = self.tts_models[0]
+        for m in self.tts_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=m,
+                    contents=text,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["AUDIO"]
+                    )
+                )
+                used_model = m
+                break
+            except Exception as e:
+                print(f"Falla en TTS con {m}: {e}, probando fallback...")
+                continue
+
+        if not response:
+            raise RuntimeError("No se pudo generar audio con los modelos TTS disponibles.")
+
+        await self._log_tokens(user_id, used_model, "tts_voice_reply", response)
 
         pcm_data = response.candidates[0].content.parts[0].inline_data.data
         wav_io = io.BytesIO()
@@ -169,12 +198,23 @@ class GeminiService:
             "Brinda una respuesta profunda, rigurosa, clara y estructurada en Markdown.\n\n"
             f"Consulta de Renato:\n{query}"
         )
-        response = self.client.models.generate_content(
-            model=self.pro_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.3
-            )
-        )
-        await self._log_tokens(user_id, self.pro_model, "pro_reasoning", response)
+        response = None
+        used_model = self.pro_models[0]
+        for m in self.pro_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(temperature=0.3)
+                )
+                used_model = m
+                break
+            except Exception as e:
+                print(f"Error en {m}: {e}, probando fallback...")
+                continue
+
+        if not response:
+            raise RuntimeError("Los modelos Pro están temporalmente saturados.")
+
+        await self._log_tokens(user_id, used_model, "pro_reasoning", response)
         return response.text

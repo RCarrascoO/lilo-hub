@@ -24,7 +24,6 @@ async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parsed = await gemini_service.process_message(text=text, user_id=user_id)
 
         if parsed.save_to_vault and parsed.title:
-            # Guardar nota en Obsidian
             filepath = VaultService.save_note(parsed, source_type="text")
 
             async with AsyncSessionLocal() as session:
@@ -53,12 +52,15 @@ async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await wait_msg.edit_text(reply, parse_mode="Markdown")
         else:
-            # Es una consulta o conversación (ej. sobre el servidor o estado)
             answer = parsed.text_reply or parsed.spoken_reply or parsed.summary or "Entendido."
             await wait_msg.edit_text(answer, parse_mode="Markdown")
 
     except Exception as e:
-        await wait_msg.edit_text(f"❌ Error al procesar mensaje: {str(e)}")
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            await wait_msg.edit_text("⏳ **Cuota momentáneamente alcanzada.** Se recargará pronto según los límites de la API.", parse_mode="Markdown")
+        else:
+            await wait_msg.edit_text(f"❌ Error al procesar mensaje: {error_msg}")
 
 async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
@@ -115,11 +117,9 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             await wait_msg.edit_text(reply, parse_mode="Markdown")
         else:
-            # Respuesta a consulta interactiva (no satura Obsidian con notas basura)
             answer_text = parsed.text_reply or parsed.spoken_reply or "Listo."
             await wait_msg.edit_text(answer_text, parse_mode="Markdown")
 
-        # Si requiere respuesta hablada, sintetizar voz con Gemini TTS y enviarla
         if parsed.is_conversational and parsed.spoken_reply:
             try:
                 voice_wav = await gemini_service.generate_voice_audio(parsed.spoken_reply, user_id=user_id)
@@ -135,4 +135,8 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 print(f"Error generando audio TTS: {tts_err}")
 
     except Exception as e:
-        await wait_msg.edit_text(f"❌ Error al procesar audio: {str(e)}")
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            await wait_msg.edit_text("⏳ **Cuota momentáneamente alcanzada.** Se recargará pronto según los límites de la API.", parse_mode="Markdown")
+        else:
+            await wait_msg.edit_text(f"❌ Error al procesar audio: {error_msg}")
