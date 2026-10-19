@@ -6,16 +6,11 @@ from src.services.wol_service import WOLService
 from src.database.db import AsyncSessionLocal
 from src.database.models import ActivityLog
 
-async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
-
-    status_msg = await update.message.reply_text("📡 Enviando paquete mágico Wake-on-LAN a tu PC...")
-
+async def trigger_wake_on_lan(user_id: int) -> tuple[bool, str]:
     # Registrar en DB
     async with AsyncSessionLocal() as session:
         log = ActivityLog(
-            user_id=update.effective_user.id,
+            user_id=user_id,
             action="WAKE_ON_LAN",
             details="Solicitud de encendido de PC"
         )
@@ -24,11 +19,21 @@ async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     result = WOLService.wake_pc()
     if not result["success"]:
-        await status_msg.edit_text(f"❌ Error al enviar paquete Wake-on-LAN: {result.get('error')}")
+        return False, f"❌ Error al enviar paquete Wake-on-LAN: {result.get('error')}"
+
+    return True, "⚡ Paquete Wake-on-LAN enviado."
+
+async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
         return
 
-    # Esperar unos segundos y chequear si responde a ping
-    await status_msg.edit_text("⚡ Paquete Wake-on-LAN enviado. Esperando inicio de red (10s)...")
+    status_msg = await update.message.reply_text("📡 Enviando paquete mágico Wake-on-LAN a tu PC...")
+    success, msg = await trigger_wake_on_lan(update.effective_user.id)
+    if not success:
+        await status_msg.edit_text(msg)
+        return
+
+    await status_msg.edit_text("⚡ Paquete enviado con éxito. Esperando respuesta de red (10s)...")
     await asyncio.sleep(10)
 
     is_online = await WOLService.is_pc_online(timeout=2)
@@ -37,6 +42,12 @@ async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     else:
         await status_msg.edit_text(
             "⚡ **Paquete enviado con éxito.**\n"
-            "La PC está arrancando o el sistema aún está iniciando la interfaz de red. Estará lista en breves instantes.",
+            "La PC está arrancando o el sistema aún está iniciando la interfaz de red.",
             parse_mode="Markdown"
         )
+
+async def wol_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Enviando paquete Wake-on-LAN...")
+    await query.message.reply_text("📡 Enviando paquete Wake-on-LAN desde botón...")
+    await encender_pc_command(query, context)

@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from src.handlers.common import is_authorized
 from src.services.system_service import SystemService
@@ -7,15 +7,9 @@ def make_bar(percent: float, length: int = 10) -> str:
     filled = int(round((percent / 100) * length))
     return "█" * filled + "░" * (length - filled)
 
-async def server_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
-
-    wait_msg = await update.message.reply_text("⏳ Consultando métricas del servidor...")
-
+def format_server_message() -> tuple[str, InlineKeyboardMarkup]:
     metrics = SystemService.get_metrics()
 
-    # Formatear CPU y RAM
     cpu = metrics["cpu_percent"]
     ram = metrics["ram"]
     ram_bar = make_bar(ram["percent"])
@@ -46,4 +40,29 @@ async def server_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg_lines.append(f"\n_Total activos: {active_count}/{len(metrics['containers'])}_")
 
-    await wait_msg.edit_text("\n".join(msg_lines), parse_mode="Markdown")
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🔄 Actualizar Métricas", callback_data="refresh_server"),
+            InlineKeyboardButton("⚡ Encender PC", callback_data="wake_pc_inline")
+        ]
+    ])
+
+    return "\n".join(msg_lines), keyboard
+
+async def server_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+
+    text, keyboard = format_server_message()
+    await update.message.reply_markdown(text, reply_markup=keyboard)
+
+async def server_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Actualizando métricas...")
+
+    text, keyboard = format_server_message()
+    try:
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    except Exception:
+        # Si las métricas no cambiaron, Telegram lanzará un error leve de 'message not modified'
+        pass
