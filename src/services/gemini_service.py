@@ -16,7 +16,10 @@ class StructuredNote(BaseModel):
 class GeminiService:
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model_name = "gemini-2.5-flash"
+        # Model Tiering: Usamos modelos ultra ligeros y económicos para texto,
+        # y modelos multimodales estándar para procesamiento de audio.
+        self.text_model = "gemini-3.5-flash-lite"
+        self.audio_model = "gemini-2.5-flash"
 
     def process_text(self, text: str) -> StructuredNote:
         prompt = (
@@ -27,15 +30,27 @@ class GeminiService:
             "y el contenido formateado en Markdown claro y bien estructurado.\n\n"
             f"Texto del usuario:\n{text}"
         )
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=StructuredNote,
-                temperature=0.2
+        try:
+            response = self.client.models.generate_content(
+                model=self.text_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=StructuredNote,
+                    temperature=0.2
+                )
             )
-        )
+        except Exception:
+            # Fallback en caso de indisponibilidad temporal de flash-lite
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=StructuredNote,
+                    temperature=0.2
+                )
+            )
         return StructuredNote.model_validate_json(response.text)
 
     def process_audio(self, audio_bytes: bytes, mime_type: str = "audio/ogg") -> StructuredNote:
@@ -47,7 +62,7 @@ class GeminiService:
             "etiquetas en minúsculas, tareas pendientes si se mencionan, y el cuerpo en Markdown claro."
         )
         response = self.client.models.generate_content(
-            model=self.model_name,
+            model=self.audio_model,
             contents=[prompt, audio_part],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

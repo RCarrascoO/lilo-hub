@@ -31,14 +31,16 @@ async def server_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for d in metrics["disks"]:
         disk_bar = make_bar(d["percent"])
-        msg_lines.append(f"• `{d['path']}`: `{d['used_gb']}G / {d['total_gb']}G` ({d['percent']}%)")
+        msg_lines.append(f"• `{d['name']}`: `{d['used_gb']}G / {d['total_gb']}G` ({d['percent']}%)")
         msg_lines.append(f"  `[{disk_bar}]` ({d['free_gb']}G libres)")
 
     msg_lines.append("\n📦 **CONTENEDORES DOCKER:**")
     active_count = 0
     for c in metrics["containers"]:
-        status_icon = "🟢" if "up" in c["status"].lower() else "🔴"
-        if status_icon == "🟢":
+        status_lower = c["status"].lower()
+        is_active = "running" in status_lower or "up" in status_lower
+        status_icon = "🟢" if is_active else "🔴"
+        if is_active:
             active_count += 1
         msg_lines.append(f"{status_icon} `{c['name']}` ({c['status']})")
 

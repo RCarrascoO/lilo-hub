@@ -16,17 +16,22 @@ class SystemService:
         ram_free_gb = round(mem.available / (1024 ** 3), 2)
         ram_percent = mem.percent
 
-        # Disk
+        # Discos sin duplicados
+        targets = [
+            {"name": "Raíz (1TB)", "path": "/"},
+            {"name": "MediaDisk (500GB)", "path": "/mnt/media"}
+        ]
         disks = []
-        for path in ["/", "/mnt/disco_1tb", "/vault"]:
+        for t in targets:
             try:
-                usage = shutil.disk_usage(path)
+                usage = shutil.disk_usage(t["path"])
                 total_gb = round(usage.total / (1024 ** 3), 1)
                 free_gb = round(usage.free / (1024 ** 3), 1)
                 used_gb = round(usage.used / (1024 ** 3), 1)
                 percent = round((usage.used / usage.total) * 100, 1)
                 disks.append({
-                    "path": path,
+                    "name": t["name"],
+                    "path": t["path"],
                     "total_gb": total_gb,
                     "used_gb": used_gb,
                     "free_gb": free_gb,
