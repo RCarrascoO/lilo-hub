@@ -238,7 +238,7 @@ async def alarm_watchdog_timeout(context: ContextTypes.DEFAULT_TYPE):
         await alarm_service.send_ntfy_alert(
             title="🚨 ¡DESPIERTA RENATO!",
             message="No has confirmado en Telegram. ¡Levántate!",
-            priority="urgent"
+            priority=5
         )
 
 

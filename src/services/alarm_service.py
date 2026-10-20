@@ -86,24 +86,27 @@ class AlarmService:
 
         return None
 
-    async def send_ntfy_alert(self, title: str, message: str, priority: str = "urgent"):
+    async def send_ntfy_alert(self, title: str, message: str, priority: int = 5):
         """
         Envía una notificación push persistente vía ntfy (open-source self-hosted / cloud).
+        Usa payload JSON para soportar emojis UTF-8 en el título sin fallas de codificación en headers.
         """
         if not settings.NTFY_TOPIC:
             return
 
-        url = f"{settings.NTFY_SERVER.rstrip('/')}/{settings.NTFY_TOPIC}"
-        headers = {
-            "Title": title,
-            "Priority": priority,  # 'urgent' / '5' dispara sonido continuo de alarma en Android
-            "Tags": "alarm_clock,warning,robot",
+        url = f"{settings.NTFY_SERVER.rstrip('/')}"
+        payload = {
+            "topic": settings.NTFY_TOPIC,
+            "title": title,
+            "message": message,
+            "priority": priority,  # 5 = urgente / max prioridad (suena continuo en Android)
+            "tags": ["alarm_clock", "warning"]
         }
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.post(url, headers=headers, content=message.encode("utf-8"))
+                res = await client.post(url, json=payload)
                 if res.status_code == 200:
-                    logger.info("Notificación ntfy enviada exitosamente.")
+                    logger.info("Notificación ntfy enviada exitosamente con payload JSON.")
                 else:
                     logger.warning(f"ntfy respondió con status {res.status_code}: {res.text}")
         except Exception as e:
