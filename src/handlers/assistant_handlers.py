@@ -9,7 +9,7 @@ from src.handlers.common import is_authorized
 from src.services.google_service import google_service
 from src.services.alarm_service import alarm_service
 from src.services.gemini_service import gemini_service
-from src.services.wol_service import wol_service
+from src.services.wol_service import WOLService
 
 logger = logging.getLogger("lilo-hub")
 
