@@ -8,9 +8,19 @@ services:
       - .env
     environment:
       - TZ=America/Santiago
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     volumes:
       - ./data:/app/data
       - /mnt/disco_1tb/obsidian_vault:/vault
+      - /mnt/disco_1tb/backups/lilo_hub:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   syncthing:
@@ -21,6 +31,10 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=America/Santiago
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     volumes:
       - /mnt/disco_1tb/syncthing_config:/config
       - /mnt/disco_1tb/obsidian_vault:/data/obsidian_vault

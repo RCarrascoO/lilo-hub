@@ -1,6 +1,9 @@
 import asyncio
 import subprocess
-from wakeonlan import send_magic_packet
+try:
+    from wakeonlan import wake
+except ImportError:
+    from wakeonlan import send_magic_packet as wake
 from src.config import settings
 
 class WOLService:
@@ -8,7 +11,7 @@ class WOLService:
     def wake_pc() -> dict:
         """Envía el paquete mágico Wake-on-LAN a la PC configurada."""
         try:
-            send_magic_packet(
+            wake(
                 settings.WOL_MAC_ADDRESS,
                 ip_address=settings.WOL_BROADCAST_IP
             )
