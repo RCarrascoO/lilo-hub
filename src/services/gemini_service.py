@@ -10,6 +10,7 @@ from src.services.token_service import TokenService
 from src.services.system_service import SystemService
 from src.services.wol_service import WOLService
 from src.services.conversation_service import ConversationService
+from src.services.google_service import google_service
 
 class StructuredResponse(BaseModel):
     title: Optional[str] = None
@@ -22,6 +23,9 @@ class StructuredResponse(BaseModel):
     save_to_vault: bool = True
     spoken_reply: Optional[str] = None
     text_reply: Optional[str] = None
+    action: Optional[str] = None
+    reminder_minutes: Optional[int] = None
+    reminder_text: Optional[str] = None
 
 class GeminiService:
     def __init__(self):
@@ -67,6 +71,22 @@ class GeminiService:
         except Exception as e:
             return f"Estado del servidor: Error consultando metricas: {e}"
 
+    def _get_live_google_context(self) -> str:
+        try:
+            if not google_service.is_authenticated():
+                return "ESTADO DE GOOGLE WORKSPACE: No autenticado actualmente."
+            events = google_service.get_calendar_events(days=2, max_results=5)
+            emails = google_service.get_unread_emails(max_results=4)
+            events_str = "; ".join([f"{e['start']}: {e['summary']}" for e in events]) if events else "Sin eventos próximos"
+            emails_str = "; ".join([f"De {e['sender'].split('<')[0].strip()}: {e['subject']}" for e in emails]) if emails else "Sin correos no leídos"
+            return (
+                f"ESTADO DE GOOGLE WORKSPACE EN VIVO:\n"
+                f"- Próximos eventos Calendar: {events_str}\n"
+                f"- Correos Gmail no leídos recientes: {emails_str}"
+            )
+        except Exception as e:
+            return f"ESTADO DE GOOGLE WORKSPACE: Error consultando ({e})"
+
     async def process_message(
         self,
         text: Optional[str] = None,
@@ -76,18 +96,22 @@ class GeminiService:
     ) -> StructuredResponse:
         recent_history = await ConversationService.get_recent_history(user_id=user_id, limit=6)
         server_ctx = self._get_live_server_context()
+        google_ctx = self._get_live_google_context()
 
         system_instruction = (
-            "Eres Lilo Hub, el orquestador y asistente personal de Renato. Tienes acceso directo a su servidor y a su bóveda de Obsidian.\n\n"
+            "Eres Lilo Hub, el orquestador y asistente personal de Renato. Tienes acceso directo a su servidor, a su Google Calendar, a su Gmail y a su bóveda de Obsidian.\n\n"
             f"{server_ctx}\n\n"
+            f"{google_ctx}\n\n"
             "INSTRUCCIONES CLAVE:\n"
             "1. DISCRIMINACIÓN DE INTENCIÓN:\n"
             "   - SI EL USUARIO PIDE DATOS DEL SERVIDOR (CPU, RAM, Docker, estado): Usa los datos en vivo provistos arriba. Responde con precisión en 'text_reply' y si es audio también en 'spoken_reply'. Pon 'save_to_vault: false' (NO guardes notas en Obsidian de consultas del servidor).\n"
-            "   - SI EL USUARIO PIDE ENCENDER SU PC: Confírmale que enviarás el paquete Wake-on-LAN. Pon 'save_to_vault: false'.\n"
+            "   - SI EL USUARIO PREGUNTA POR GOOGLE (Gmail, Calendar, agenda, eventos, clases o correos): Usa los datos en vivo provistos de Google Workspace arriba (¡TIENES ACCESO COMPLETO, jamás digas que no tienes acceso o que faltan credenciales!). Responde con precisión en 'text_reply' y 'spoken_reply'. Pon 'save_to_vault: false'.\n"
+            "   - SI EL USUARIO PIDE ENCENDER SU PC: Confírmale que enviarás el paquete Wake-on-LAN, pon 'action: wake_pc', 'save_to_vault: false'.\n"
+            "   - SI EL USUARIO PIDE UN RECORDATORIO O TEMPORIZADOR (ej: 'recuérdame en 5 minutos hacer X', 'pon una alarma en 10 min'): Pon 'action: reminder', 'reminder_minutes: <numero_en_minutos>', 'reminder_text: <motivo>', 'save_to_vault: false'. Confirma en 'text_reply' / 'spoken_reply' que programaste el recordatorio.\n"
             "   - SI EL USUARIO ESTÁ CONVERSANDO O HACIENDO PREGUNTAS GENERALES: Mantén la conversación con el historial previo en 'text_reply'. Pon 'save_to_vault: false'.\n"
-            "   - SI EL USUARIO ESTÁ DICTANDO UNA NOTA, RECORDATORIO O TAREA (ej: 'anota esto', 'comprar tal cosa', 'pensamiento:'): Pon 'save_to_vault: true', completa 'title', 'summary', 'tags', 'tasks', 'content_markdown'. En este caso 'is_conversational' DEBE SER FALSE.\n"
+            "   - SI EL USUARIO ESTÁ DICTANDO UNA NOTA PARA GUARDAR (ej: 'anota esto', 'guarda esta idea', 'pensamiento:'): Pon 'save_to_vault: true', completa 'title', 'summary', 'tags', 'tasks', 'content_markdown'. En este caso 'is_conversational' DEBE SER FALSE.\n"
             "2. VOZ:\n"
-            "   - Si el mensaje de entrada fue audio Y el usuario hizo una pregunta o conversación directa, pon 'is_conversational: true' y redacta en 'spoken_reply' una respuesta hablada concisa y natural (máximo 2-3 oraciones).\n"
+            "   - Si el mensaje de entrada fue audio Y el usuario hizo una pregunta o pidió una acción directa, pon 'is_conversational: true' y redacta en 'spoken_reply' una respuesta hablada concisa y natural (máximo 2-3 oraciones).\n"
             "   - Si fue un dictado de nota, 'is_conversational' debe ser false y 'spoken_reply' null."
         )
 

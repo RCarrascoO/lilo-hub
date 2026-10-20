@@ -4,10 +4,19 @@ from telegram.ext import ContextTypes
 from src.handlers.common import is_authorized
 from src.services.gemini_service import GeminiService, StructuredResponse
 from src.services.vault_service import VaultService
+from src.services.wol_service import WOLService
 from src.database.db import AsyncSessionLocal
 from src.database.models import CapturedNote
 
 gemini_service = GeminiService()
+
+async def _fire_reminder_job(context: ContextTypes.DEFAULT_TYPE):
+    rem_text = context.job.data or "¡Tiempo cumplido!"
+    await context.bot.send_message(
+        chat_id=context.job.chat_id,
+        text=f"⏰ **¡RECORDATORIO!**\n\n{rem_text}",
+        parse_mode="Markdown"
+    )
 
 async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
@@ -53,6 +62,20 @@ async def handle_text_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await wait_msg.edit_text(reply, parse_mode="Markdown")
         else:
             answer = parsed.text_reply or parsed.spoken_reply or parsed.summary or "Entendido."
+            if parsed.action == "wake_pc":
+                res = WOLService.wake_pc()
+                status = "⚡ _Paquete mágico Wake-on-LAN enviado a tu PC._" if res["success"] else f"❌ Error WOL: {res.get('error')}"
+                answer = f"{answer}\n\n{status}"
+            elif parsed.action == "reminder" and parsed.reminder_minutes and context.job_queue:
+                secs = parsed.reminder_minutes * 60
+                rem_text = parsed.reminder_text or "Recordatorio"
+                context.job_queue.run_once(
+                    _fire_reminder_job,
+                    when=secs,
+                    chat_id=update.effective_chat.id,
+                    data=rem_text,
+                    name=f"reminder_{user_id}"
+                )
             await wait_msg.edit_text(answer, parse_mode="Markdown")
 
     except Exception as e:
@@ -118,6 +141,20 @@ async def handle_voice_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await wait_msg.edit_text(reply, parse_mode="Markdown")
         else:
             answer_text = parsed.text_reply or parsed.spoken_reply or "Listo."
+            if parsed.action == "wake_pc":
+                res = WOLService.wake_pc()
+                status = "⚡ _Paquete mágico Wake-on-LAN enviado a tu PC._" if res["success"] else f"❌ Error WOL: {res.get('error')}"
+                answer_text = f"{answer_text}\n\n{status}"
+            elif parsed.action == "reminder" and parsed.reminder_minutes and context.job_queue:
+                secs = parsed.reminder_minutes * 60
+                rem_text = parsed.reminder_text or "Recordatorio"
+                context.job_queue.run_once(
+                    _fire_reminder_job,
+                    when=secs,
+                    chat_id=update.effective_chat.id,
+                    data=rem_text,
+                    name=f"reminder_{user_id}"
+                )
             await wait_msg.edit_text(answer_text, parse_mode="Markdown")
 
         if parsed.is_conversational and parsed.spoken_reply:
