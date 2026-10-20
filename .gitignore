@@ -11,5 +11,8 @@ venv/
 .env
 data/
 vault/
+credentials.json
+token.json
+client_secret*.json
 *.log
 .DS_Store

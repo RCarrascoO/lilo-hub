@@ -19,6 +19,8 @@ services:
       retries: 3
     volumes:
       - ./data:/app/data
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json
       - /mnt/disco_1tb/obsidian_vault:/vault
       - /mnt/disco_1tb/backups/lilo_hub:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro

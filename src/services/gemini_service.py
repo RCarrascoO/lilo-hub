@@ -25,7 +25,8 @@ class StructuredResponse(BaseModel):
 
 class GeminiService:
     def __init__(self):
-        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        api_key = settings.GEMINI_API_KEY or "AIzaSyDummyKeyForTestingTestingTesting"
+        self.client = genai.Client(api_key=api_key)
         # Piscinas de modelos con cascada automática para sortear límites de cuota (429)
         self.text_models = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"]
         self.audio_models = ["gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash"]
@@ -218,3 +219,27 @@ class GeminiService:
 
         await self._log_tokens(user_id, used_model, "pro_reasoning", response)
         return response.text
+
+    async def generate_briefing_text(self, prompt: str, user_id: int = 0) -> str:
+        response = None
+        used_model = self.text_models[0]
+        for m in self.text_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(temperature=0.7)
+                )
+                used_model = m
+                break
+            except Exception as e:
+                print(f"Error en {m} para briefing: {e}, probando fallback...")
+                continue
+
+        if not response:
+            raise RuntimeError("Los modelos de texto están temporalmente saturados.")
+
+        await self._log_tokens(user_id, used_model, "morning_briefing", response)
+        return response.text
+
+gemini_service = GeminiService()

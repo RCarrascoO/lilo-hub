@@ -11,8 +11,9 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Retorna el teclado rápido persistente en la parte inferior del chat."""
     keyboard = [
         [KeyboardButton("⚡ Encender PC"), KeyboardButton("🖥️ Servidor")],
-        [KeyboardButton("📓 Última Nota"), KeyboardButton("📊 Tokens IA")],
-        [KeyboardButton("❓ Ayuda")]
+        [KeyboardButton("📅 Agenda"), KeyboardButton("✉️ Correos")],
+        [KeyboardButton("⏰ Alarma"), KeyboardButton("📊 Tokens IA")],
+        [KeyboardButton("📓 Última Nota"), KeyboardButton("❓ Ayuda")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -24,16 +25,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name or "Renato"
     msg = (
         f"👋 **¡Hola, {user_name}! Bienvenido a Lilo Hub.**\n\n"
-        "Soy tu orquestador personal conectado al servidor 24/7 y a tu bóveda de Obsidian.\n\n"
+        "Soy tu orquestador personal conectado a tu servidor 24/7, tu bóveda de Obsidian y tu Google Workspace.\n\n"
         "⚡ **Accesos Rápidos (Botones):**\n"
-        "• Puedes usar los botones inferiores directamente sin escribir comandos.\n\n"
-        "🤖 **Modelos de IA Disponibles:**\n"
-        "• **Flash-Lite (Texto):** Captura notas e ideas ultra rápido y con costo casi nulo.\n"
-        "• **Flash Multimodal (Voz):** Transcribe notas de voz y responde por audio solo si le haces preguntas directas.\n"
-        "• **Gemini Pro:** Modo razonamiento profundo usando `/pro <consulta>`.\n"
-        "• **📊 Tokens IA:** Monitoreo en tiempo real de tu consumo de tokens.\n\n"
+        "• `⚡ Encender PC` / `🖥️ Servidor`: Control de hardware y contenedores.\n"
+        "• `📅 Agenda` / `✉️ Correos`: Google Calendar y Gmail en tiempo real.\n"
+        "• `⏰ Alarma`: Morning Briefing matutino con voz y despertador.\n"
+        "• `📊 Tokens IA`: Telemetría y cuota de modelos de Gemini.\n\n"
+        "🤖 **Modelos de IA:**\n"
+        "• **Flash-Lite (Texto):** Captura notas e ideas ultra rápido.\n"
+        "• **Flash Multimodal (Voz):** Transcribe audios y responde por voz cuando haces preguntas.\n"
+        "• **Gemini Pro:** Modo razonamiento avanzado usando `/pro <consulta>`.\n\n"
         "📥 **Captura Rápida:**\n"
-        "• Simplemente escribe un texto o graba una nota de voz."
+        "• Escribe cualquier texto o manda una nota de voz directamente."
     )
     await update.message.reply_markdown(msg, reply_markup=get_main_keyboard())
 
