@@ -29,9 +29,9 @@ services:
     image: hacdias/webdav:latest
     container_name: obsidian_webdav
     restart: unless-stopped
+    working_dir: /data
     ports:
       - "8080:8080"
     volumes:
       - /mnt/disco_1tb/obsidian_vault:/data
-      - ./webdav.yaml:/etc/webdav.yaml:ro
-    command: ["-c", "/etc/webdav.yaml"]
+      - ./webdav.yaml:/etc/webdav/config.yaml:ro

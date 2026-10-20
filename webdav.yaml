@@ -2,6 +2,8 @@ address: 0.0.0.0
 port: 8080
 auth: true
 prefix: /
+scope: .
+modify: true
 
 cors:
   enabled: true
@@ -36,4 +38,5 @@ cors:
 users:
   - username: sane
     password: lilo2026
-    scope: /data
+    scope: .
+    modify: true
