@@ -1,0 +1,39 @@
+address: 0.0.0.0
+port: 8080
+auth: true
+prefix: /
+
+cors:
+  enabled: true
+  credentials: true
+  allowed_headers:
+    - Depth
+    - Content-Type
+    - Authorization
+    - Destination
+    - Overwrite
+    - If-Match
+    - If-None-Match
+    - X-Requested-With
+  allowed_hosts:
+    - "*"
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    - PROPFIND
+    - PROPPATCH
+    - MKCOL
+    - COPY
+    - MOVE
+  exposed_headers:
+    - Content-Length
+    - Content-Range
+    - ETag
+
+users:
+  - username: sane
+    password: lilo2026
+    scope: /data

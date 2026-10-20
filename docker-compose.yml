@@ -25,23 +25,13 @@ services:
       - /mnt/disco_1tb/backups/lilo_hub:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-  syncthing:
-    image: lscr.io/linuxserver/syncthing:latest
-    container_name: syncthing
+  webdav:
+    image: hacdias/webdav:latest
+    container_name: obsidian_webdav
     restart: unless-stopped
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Santiago
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    volumes:
-      - /mnt/disco_1tb/syncthing_config:/config
-      - /mnt/disco_1tb/obsidian_vault:/data/obsidian_vault
     ports:
-      - "8384:8384"
-      - "22000:22000/tcp"
-      - "22000:22000/udp"
-      - "21027:21027/udp"
+      - "8080:8080"
+    volumes:
+      - /mnt/disco_1tb/obsidian_vault:/data
+      - ./webdav.yaml:/etc/webdav.yaml:ro
+    command: ["-c", "/etc/webdav.yaml"]
