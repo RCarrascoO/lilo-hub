@@ -181,13 +181,7 @@ async def fire_morning_alarm(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             parse_mode="Markdown"
         )
 
-        # 3. Notificación Push ntfy instantánea
-        await alarm_service.send_ntfy_alert(
-            title="⏰ ¡Hora de despertar, Renato!",
-            message="Alarma matutina activa en Telegram. Presiona 'Ya desperté' para confirmar."
-        )
-
-        # 4. Programar Watchdog de seguridad (5 minutos)
+        # 3. Programar Watchdog de seguridad (5 minutos)
         alarm_service.pending_acknowledgment = datetime.datetime.now().isoformat()
         if context.job_queue:
             context.job_queue.run_once(
@@ -232,13 +226,6 @@ async def alarm_watchdog_timeout(context: ContextTypes.DEFAULT_TYPE):
                  "¡Renato, levántate! Tienes clases y actividades programadas.",
             reply_markup=keyboard,
             parse_mode="Markdown"
-        )
-
-        # Enviar alerta de máxima prioridad a ntfy (activa sonido en Android)
-        await alarm_service.send_ntfy_alert(
-            title="🚨 ¡DESPIERTA RENATO!",
-            message="No has confirmado en Telegram. ¡Levántate!",
-            priority=5
         )
 
 

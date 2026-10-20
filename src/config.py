@@ -17,8 +17,6 @@ class Settings(BaseSettings):
 
     GOOGLE_TOKEN_PATH: str = "data/token.json"
     GOOGLE_CREDENTIALS_PATH: str = "data/credentials.json"
-    NTFY_TOPIC: str = ""
-    NTFY_SERVER: str = "https://ntfy.sh"
     TIMEZONE: str = "America/Santiago"
 
     model_config = SettingsConfigDict(

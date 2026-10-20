@@ -1,7 +1,6 @@
 import logging
 import datetime
 from typing import Dict, Any, Optional, Tuple
-import httpx
 from zoneinfo import ZoneInfo
 
 from src.config import settings
@@ -85,32 +84,6 @@ class AlarmService:
                 return datetime.datetime(next_day.year, next_day.month, next_day.day, h, m, tzinfo=self.tz)
 
         return None
-
-    async def send_ntfy_alert(self, title: str, message: str, priority: int = 5):
-        """
-        Envía una notificación push persistente vía ntfy (open-source self-hosted / cloud).
-        Usa payload JSON para soportar emojis UTF-8 en el título sin fallas de codificación en headers.
-        """
-        if not settings.NTFY_TOPIC:
-            return
-
-        url = f"{settings.NTFY_SERVER.rstrip('/')}"
-        payload = {
-            "topic": settings.NTFY_TOPIC,
-            "title": title,
-            "message": message,
-            "priority": priority,  # 5 = urgente / max prioridad (suena continuo en Android)
-            "tags": ["alarm_clock", "warning"]
-        }
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.post(url, json=payload)
-                if res.status_code == 200:
-                    logger.info("Notificación ntfy enviada exitosamente con payload JSON.")
-                else:
-                    logger.warning(f"ntfy respondió con status {res.status_code}: {res.text}")
-        except Exception as e:
-            logger.error(f"Error enviando alerta ntfy: {e}")
 
     async def generate_briefing(self) -> Tuple[str, str, Optional[bytes]]:
         """
