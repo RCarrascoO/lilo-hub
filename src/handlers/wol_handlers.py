@@ -23,12 +23,9 @@ async def trigger_wake_on_lan(user_id: int) -> tuple[bool, str]:
 
     return True, "⚡ Paquete Wake-on-LAN enviado."
 
-async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
-
-    status_msg = await update.message.reply_text("📡 Enviando paquete mágico Wake-on-LAN a tu PC...")
-    success, msg = await trigger_wake_on_lan(update.effective_user.id)
+async def _handle_wol_flow(reply_func, user_id: int):
+    status_msg = await reply_func("📡 Enviando paquete mágico Wake-on-LAN a tu PC...")
+    success, msg = await trigger_wake_on_lan(user_id)
     if not success:
         await status_msg.edit_text(msg)
         return
@@ -46,8 +43,16 @@ async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="Markdown"
         )
 
+async def encender_pc_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update):
+        return
+    await _handle_wol_flow(update.message.reply_text, update.effective_user.id)
+
 async def wol_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    if not is_authorized(update):
+        await query.answer("No autorizado", show_alert=True)
+        return
+
     await query.answer("Enviando paquete Wake-on-LAN...")
-    await query.message.reply_text("📡 Enviando paquete Wake-on-LAN desde botón...")
-    await encender_pc_command(query, context)
+    await _handle_wol_flow(query.message.reply_text, update.effective_user.id)

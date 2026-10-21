@@ -10,6 +10,7 @@ from src.services.google_service import google_service
 from src.services.alarm_service import alarm_service
 from src.services.gemini_service import gemini_service
 from src.services.wol_service import WOLService
+from src.utils.date_utils import format_spanish_date, get_spanish_weekday
 
 logger = logging.getLogger("lilo-hub")
 
@@ -56,7 +57,7 @@ async def agenda_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 elif dt.date() == tomorrow:
                     prefix = "🌅 **Mañana a las**"
                 else:
-                    prefix = f"📆 **{dt.strftime('%d/%m')} a las**"
+                    prefix = f"📆 **{get_spanish_weekday(dt).capitalize()} {dt.day}/{dt.month} a las**"
                 lines.append(f"{prefix} `{time_str}`: **{summary}**{loc}")
             except Exception:
                 lines.append(f"• `{raw_start}`: **{summary}**{loc}")
@@ -129,7 +130,7 @@ async def alarma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Si no pasaron argumentos, mostramos estado
     next_alarm = alarm_service.get_next_alarm()
-    status_text = f"`{next_alarm.strftime('%A %d/%m a las %H:%M')}`" if next_alarm else "_Apagada_"
+    status_text = f"`{format_spanish_date(next_alarm, include_time=True)}`" if next_alarm else "_Apagada_"
 
     msg = (
         "⏰ **Configuración de Alarma & Morning Briefing**\n\n"

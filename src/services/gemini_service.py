@@ -11,6 +11,7 @@ from src.services.system_service import SystemService
 from src.services.wol_service import WOLService
 from src.services.conversation_service import ConversationService
 from src.services.google_service import google_service
+from src.utils.date_utils import get_now, format_spanish_date, format_relative_event_time
 
 class StructuredResponse(BaseModel):
     title: Optional[str] = None
@@ -75,14 +76,31 @@ class GeminiService:
         try:
             if not google_service.is_authenticated():
                 return "ESTADO DE GOOGLE WORKSPACE: No autenticado actualmente."
-            events = google_service.get_calendar_events(days=2, max_results=5)
-            emails = google_service.get_unread_emails(max_results=4)
-            events_str = "; ".join([f"{e['start']}: {e['summary']}" for e in events]) if events else "Sin eventos próximos"
-            emails_str = "; ".join([f"De {e['sender'].split('<')[0].strip()}: {e['subject']}" for e in emails]) if emails else "Sin correos no leídos"
+            events = google_service.get_calendar_events(days=3, max_results=6)
+            emails = google_service.get_unread_emails(max_results=5)
+
+            events_lines = []
+            if events:
+                for e in events:
+                    formatted_time = format_relative_event_time(e['start'], e.get('is_all_day', False))
+                    events_lines.append(f"• {formatted_time}: {e['summary']}")
+                events_str = "\n".join(events_lines)
+            else:
+                events_str = "Sin eventos próximos"
+
+            emails_lines = []
+            if emails:
+                for e in emails:
+                    sender = e['sender'].split('<')[0].strip().replace('"', '')
+                    emails_lines.append(f"• De {sender}: {e['subject']}")
+                emails_str = "\n".join(emails_lines)
+            else:
+                emails_str = "Sin correos no leídos"
+
             return (
                 f"ESTADO DE GOOGLE WORKSPACE EN VIVO:\n"
-                f"- Próximos eventos Calendar: {events_str}\n"
-                f"- Correos Gmail no leídos recientes: {emails_str}"
+                f"- Próximos eventos Calendar:\n{events_str}\n"
+                f"- Correos Gmail no leídos recientes:\n{emails_str}"
             )
         except Exception as e:
             return f"ESTADO DE GOOGLE WORKSPACE: Error consultando ({e})"
@@ -97,9 +115,13 @@ class GeminiService:
         recent_history = await ConversationService.get_recent_history(user_id=user_id, limit=6)
         server_ctx = self._get_live_server_context()
         google_ctx = self._get_live_google_context()
+        now = get_now()
+        fecha_exacta = format_spanish_date(now)
 
         system_instruction = (
             "Eres Lilo Hub, el orquestador y asistente personal de Renato. Tienes acceso directo a su servidor, a su Google Calendar, a su Gmail y a su bóveda de Obsidian.\n\n"
+            f"FECHA Y HORA ACTUAL EN VIVO (Zona horaria Chile / Santiago):\n"
+            f"- Hoy es: {fecha_exacta}\n\n"
             f"{server_ctx}\n\n"
             f"{google_ctx}\n\n"
             "INSTRUCCIONES CLAVE:\n"
@@ -218,8 +240,11 @@ class GeminiService:
         return wav_io.getvalue()
 
     async def query_pro_model(self, query: str, user_id: int = 0) -> str:
+        now = get_now()
+        fecha_exacta = format_spanish_date(now)
         prompt = (
             "Eres Lilo Hub en Modo Pro (Gemini 2.5 Pro). Actúas como el consultor y tutor experto de Renato. "
+            f"La fecha y hora actual en vivo es {fecha_exacta} (Santiago de Chile).\n"
             "Brinda una respuesta profunda, rigurosa, clara y estructurada en Markdown.\n\n"
             f"Consulta de Renato:\n{query}"
         )

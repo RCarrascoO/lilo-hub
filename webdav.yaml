@@ -3,7 +3,7 @@ port: 8080
 auth: true
 prefix: /
 scope: .
-modify: true
+permissions: CRUD
 
 cors:
   enabled: true
@@ -39,4 +39,4 @@ users:
   - username: sane
     password: lilo2026
     scope: .
-    modify: true
+    permissions: CRUD

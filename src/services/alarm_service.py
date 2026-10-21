@@ -9,6 +9,7 @@ from src.services.gemini_service import gemini_service
 from src.services.vault_service import VaultService
 from src.services.wol_service import WOLService
 from src.services.system_service import SystemService
+from src.utils.date_utils import format_spanish_date, format_relative_event_time
 
 logger = logging.getLogger("lilo-hub")
 
@@ -91,7 +92,7 @@ class AlarmService:
         - Retorna: (texto_telegram, guion_audio, audio_bytes_ogg_opus)
         """
         now = datetime.datetime.now(self.tz)
-        today_str = now.strftime("%A %d de %B de %Y")
+        today_str = format_spanish_date(now, include_time=False)
 
         # 1. Google Calendar
         events = google_service.get_calendar_events(days=1, max_results=5)
