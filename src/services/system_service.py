@@ -18,8 +18,8 @@ class SystemService:
 
         # Discos sin duplicados
         targets = [
-            {"name": "Raíz (1TB)", "path": "/"},
-            {"name": "MediaDisk (500GB)", "path": "/mnt/media"}
+            {"name": "Almacenamiento Principal", "path": "/"},
+            {"name": "Almacenamiento Secundario", "path": "/mnt/media"}
         ]
         disks = []
         for t in targets:

@@ -36,7 +36,7 @@ cors:
     - ETag
 
 users:
-  - username: sane
-    password: lilo2026
+  - username: admin
+    password: change_me_password
     scope: .
     permissions: CRUD

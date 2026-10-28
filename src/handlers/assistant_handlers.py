@@ -16,7 +16,7 @@ logger = logging.getLogger("lilo-hub")
 
 
 async def agenda_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Muestra los eventos y clases de Google Calendar para hoy y los próximos días."""
+    """Muestra los eventos de Google Calendar para hoy y los próximos días."""
     if not is_authorized(update):
         return
 
@@ -136,12 +136,8 @@ async def alarma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⏰ **Configuración de Alarma & Morning Briefing**\n\n"
         f"🎯 **Próxima alarma programada:** {status_text}\n\n"
         "📅 **Horario base semanal:**\n"
-        "• Lunes: `07:40`\n"
-        "• Martes y Jueves: `06:20`\n"
-        "• Miércoles: `08:20`\n"
-        "• Viernes: `10:00`\n"
-        "• Sábado: `09:00`\n"
-        "• Domingo: _Libre_\n\n"
+        "• Lunes a Viernes: `08:00`\n"
+        "• Sábado y Domingo: _Libre_\n\n"
         "💡 **Comandos rápidos:**\n"
         "• `/alarma 07:00` $\\rightarrow$ Cambiar hora para la próxima alarma\n"
         "• `/alarma off` $\\rightarrow$ Desactivar próxima alarma\n"
@@ -171,7 +167,7 @@ async def fire_morning_alarm(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             await context.bot.send_voice(
                 chat_id=chat_id,
                 voice=audio_bytes,
-                caption="🎙️ **Buenos días, Renato.** Aquí tienes tu informe de hoy."
+                caption=f"🎙️ **Buenos días, {settings.USER_NAME}.** Aquí tienes tu informe de hoy."
             )
 
         # 2. Enviar ficha de texto con botones
@@ -215,7 +211,7 @@ async def alarm_watchdog_timeout(context: ContextTypes.DEFAULT_TYPE):
     """Se ejecuta si pasaron 5 minutos sin confirmar el despertar."""
     if alarm_service.pending_acknowledgment:
         chat_id = context.job.chat_id
-        logger.warning(f"Watchdog de alarma activado para chat {chat_id}: Renato aún no confirma que despertó.")
+        logger.warning(f"Watchdog de alarma activado para chat {chat_id}: El usuario aún no confirma que despertó.")
 
         # Re-enviar alerta ruidosa e insistente a Telegram
         keyboard = InlineKeyboardMarkup([
@@ -224,7 +220,7 @@ async def alarm_watchdog_timeout(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=chat_id,
             text="🚨 **¡ATENCIÓN! HAN PASADO 5 MINUTOS Y NO HAS CONFIRMADO.**\n\n"
-                 "¡Renato, levántate! Tienes clases y actividades programadas.",
+                 f"¡{settings.USER_NAME}, es hora de levantarse! Tienes compromisos programados.",
             reply_markup=keyboard,
             parse_mode="Markdown"
         )

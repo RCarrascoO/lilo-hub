@@ -31,7 +31,7 @@ docker compose restart lilo_hub
 * **SQLite en Modo WAL:** Se configura `PRAGMA journal_mode=WAL` y `busy_timeout=5000` para eliminar bloqueos de concurrencia.
 * **Respaldos Automáticos:** Job diario programado a las 04:00 AM mediante `BackupService.create_backup()` hacia `/backups/` con retención de 7 días.
 * **Manejo Global de Errores:** Errores no capturados pasan por `error_handler` y se auditan en la tabla `ActivityLog`.
-* **Límites de Recursos:** El contenedor tiene un tope de 512MB de RAM en `docker-compose.yml` para garantizar la estabilidad del servidor y de Crafty (Minecraft 24/7).
+* **Límites de Recursos:** El contenedor tiene un tope de 512MB de RAM en `docker-compose.yml` para garantizar la estabilidad del servidor y otros servicios concurrentes.
 * **Model Tiering y Cascada:**
   * Texto $\rightarrow$ `gemini-3.5-flash-lite`.
   * Audio $\rightarrow$ `gemini-flash-latest` con cascada ante 429 hacia `gemini-3.5-flash` y `gemini-2.5-flash`.

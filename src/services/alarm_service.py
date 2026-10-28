@@ -15,12 +15,12 @@ logger = logging.getLogger("lilo-hub")
 
 # Horario base por defecto: día de la semana (0=Lunes, 6=Domingo)
 DEFAULT_WEEKLY_SCHEDULE: Dict[int, Optional[str]] = {
-    0: "07:40",  # Lunes
-    1: "06:20",  # Martes
-    2: "08:20",  # Miércoles
-    3: "06:20",  # Jueves
-    4: "10:00",  # Viernes
-    5: "09:00",  # Sábado
+    0: "08:00",  # Lunes
+    1: "08:00",  # Martes
+    2: "08:00",  # Miércoles
+    3: "08:00",  # Jueves
+    4: "08:00",  # Viernes
+    5: None,     # Sábado (apagado por defecto)
     6: None,     # Domingo (apagado por defecto)
 }
 
@@ -121,23 +121,23 @@ class AlarmService:
         # 4. Prompt para guión y resumen
         prompt = (
             f"Hoy es {today_str}, hora actual {now.strftime('%H:%M')}.\n"
-            f"El usuario es Renato. Actúa como Lilo, su asistente de cabecera inteligente y profesional.\n"
+            f"El usuario es {settings.USER_NAME}. Actúa como Lilo, su asistente de cabecera inteligente y profesional.\n"
             f"Datos del día:\n"
-            f"- Eventos/Clases de hoy:\n{events_text}\n"
+            f"- Eventos de la agenda de hoy:\n{events_text}\n"
             f"- Correos recientes no leídos:\n{emails_text}\n"
             f"- Estado del servidor:\n{srv_text}\n\n"
             "Tu tarea es generar DOS cosas separadas por el delimitador '---SCRIPT---':\n"
             "1. TEXTO: Una ficha visual limpia, motivadora y ejecutiva para Telegram, usando emojis y viñetas claras.\n"
             "---SCRIPT---\n"
             "2. GUION: Un guión hablado para nota de voz de exactamente 20 a 30 segundos. Tono enérgico, claro y directo. "
-            "Saluda a Renato, dile la hora, destaca su primera clase o evento del día y anímalo a levantarse con energía."
+            f"Saluda a {settings.USER_NAME}, dile la hora, destaca su primer compromiso o evento del día y anímalo a comenzar la jornada con energía."
         )
 
         try:
             response_text = await gemini_service.generate_briefing_text(prompt, user_id=0)
         except Exception as e:
             logger.error(f"Error generando texto del briefing: {e}")
-            response_text = f"¡Buenos días Renato!\n\n📅 Agenda de hoy:\n{events_text}\n\n✉️ Correos:\n{emails_text}"
+            response_text = f"¡Buenos días {settings.USER_NAME}!\n\n📅 Agenda de hoy:\n{events_text}\n\n✉️ Correos:\n{emails_text}"
 
         if "---SCRIPT---" in response_text:
             parts = response_text.split("---SCRIPT---", 1)
@@ -146,8 +146,8 @@ class AlarmService:
         else:
             text_card = response_text.strip()
             spoken_script = (
-                f"¡Buenos días Renato! Son las {now.strftime('%H:%M')}. "
-                f"Tienes clases hoy. Revisa tu agenda y que tengas una excelente jornada."
+                f"¡Buenos días {settings.USER_NAME}! Son las {now.strftime('%H:%M')}. "
+                f"Revisa tu agenda y que tengas una excelente jornada."
             )
 
         # 5. Sintetizar voz TTS

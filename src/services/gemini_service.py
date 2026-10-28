@@ -63,7 +63,7 @@ class GeminiService:
             containers_str = ", ".join([f"{c['name']} ({c['status']})" for c in m["containers"]])
             disks_str = ", ".join([f"{d['name']}: {d['free_gb']}GB libres de {d['total_gb']}GB" for d in m["disks"]])
             return (
-                f"ESTADO DEL SERVIDOR SANEHOST EN VIVO:\n"
+                f"ESTADO DEL SERVIDOR EN VIVO:\n"
                 f"- CPU: {m['cpu_percent']}% ({m['cpu_count']} cores)\n"
                 f"- RAM: {ram['used_gb']} GB usados de {ram['total_gb']} GB ({ram['percent']}%), libres: {ram['free_gb']} GB\n"
                 f"- Discos: {disks_str}\n"
@@ -119,7 +119,7 @@ class GeminiService:
         fecha_exacta = format_spanish_date(now)
 
         system_instruction = (
-            "Eres Lilo Hub, el orquestador y asistente personal de Renato. Tienes acceso directo a su servidor, a su Google Calendar, a su Gmail y a su bóveda de Obsidian.\n\n"
+            f"Eres Lilo Hub, el orquestador y asistente personal de {settings.USER_NAME}. Tienes acceso directo a su servidor, a su Google Calendar, a su Gmail y a su bóveda de Obsidian.\n\n"
             f"FECHA Y HORA ACTUAL EN VIVO (Zona horaria Chile / Santiago):\n"
             f"- Hoy es: {fecha_exacta}\n\n"
             f"{server_ctx}\n\n"
@@ -127,7 +127,7 @@ class GeminiService:
             "INSTRUCCIONES CLAVE:\n"
             "1. DISCRIMINACIÓN DE INTENCIÓN:\n"
             "   - SI EL USUARIO PIDE DATOS DEL SERVIDOR (CPU, RAM, Docker, estado): Usa los datos en vivo provistos arriba. Responde con precisión en 'text_reply' y si es audio también en 'spoken_reply'. Pon 'save_to_vault: false' (NO guardes notas en Obsidian de consultas del servidor).\n"
-            "   - SI EL USUARIO PREGUNTA POR GOOGLE (Gmail, Calendar, agenda, eventos, clases o correos): Usa los datos en vivo provistos de Google Workspace arriba (¡TIENES ACCESO COMPLETO, jamás digas que no tienes acceso o que faltan credenciales!). Responde con precisión en 'text_reply' y 'spoken_reply'. Pon 'save_to_vault: false'.\n"
+            "   - SI EL USUARIO PREGUNTA POR GOOGLE (Gmail, Calendar, agenda, eventos o correos): Usa los datos en vivo provistos de Google Workspace arriba (¡TIENES ACCESO COMPLETO, jamás digas que no tienes acceso o que faltan credenciales!). Responde con precisión en 'text_reply' y 'spoken_reply'. Pon 'save_to_vault: false'.\n"
             "   - SI EL USUARIO PIDE ENCENDER SU PC: Confírmale que enviarás el paquete Wake-on-LAN, pon 'action: wake_pc', 'save_to_vault: false'.\n"
             "   - SI EL USUARIO PIDE UN RECORDATORIO O TEMPORIZADOR (ej: 'recuérdame en 5 minutos hacer X', 'pon una alarma en 10 min'): Pon 'action: reminder', 'reminder_minutes: <numero_en_minutos>', 'reminder_text: <motivo>', 'save_to_vault: false'. Confirma en 'text_reply' / 'spoken_reply' que programaste el recordatorio.\n"
             "   - SI EL USUARIO ESTÁ CONVERSANDO O HACIENDO PREGUNTAS GENERALES: Mantén la conversación con el historial previo en 'text_reply'. Pon 'save_to_vault: false'.\n"
@@ -243,10 +243,10 @@ class GeminiService:
         now = get_now()
         fecha_exacta = format_spanish_date(now)
         prompt = (
-            "Eres Lilo Hub en Modo Pro (Gemini 2.5 Pro). Actúas como el consultor y tutor experto de Renato. "
+            f"Eres Lilo Hub en Modo Pro (Gemini 2.5 Pro). Actúas como consultor y tutor experto de {settings.USER_NAME}. "
             f"La fecha y hora actual en vivo es {fecha_exacta} (Santiago de Chile).\n"
             "Brinda una respuesta profunda, rigurosa, clara y estructurada en Markdown.\n\n"
-            f"Consulta de Renato:\n{query}"
+            f"Consulta del usuario:\n{query}"
         )
         response = None
         used_model = self.pro_models[0]

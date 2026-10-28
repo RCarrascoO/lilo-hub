@@ -32,17 +32,17 @@ def test_backup_service_creation(tmp_path, monkeypatch):
 
 def test_alarm_schedule_defaults():
     alarm = AlarmService()
-    # 2026-10-19 es Lunes (weekday=0) -> 07:40
+    # 2026-10-19 es Lunes (weekday=0) -> 08:00
     monday = datetime.date(2026, 10, 19)
-    assert alarm.get_alarm_time_for_date(monday) == (7, 40)
+    assert alarm.get_alarm_time_for_date(monday) == (8, 0)
 
-    # 2026-10-20 es Martes (weekday=1) -> 06:20
+    # 2026-10-20 es Martes (weekday=1) -> 08:00
     tuesday = datetime.date(2026, 10, 20)
-    assert alarm.get_alarm_time_for_date(tuesday) == (6, 20)
+    assert alarm.get_alarm_time_for_date(tuesday) == (8, 0)
 
-    # 2026-10-21 es Miércoles (weekday=2) -> 08:20
+    # 2026-10-21 es Miércoles (weekday=2) -> 08:00
     wednesday = datetime.date(2026, 10, 21)
-    assert alarm.get_alarm_time_for_date(wednesday) == (8, 20)
+    assert alarm.get_alarm_time_for_date(wednesday) == (8, 0)
 
     # 2026-10-25 es Domingo (weekday=6) -> None
     sunday = datetime.date(2026, 10, 25)
@@ -51,8 +51,8 @@ def test_alarm_schedule_defaults():
 def test_alarm_manual_override():
     alarm = AlarmService()
     tuesday = datetime.date(2026, 10, 20)
-    # Por defecto martes es 06:20
-    assert alarm.get_alarm_time_for_date(tuesday) == (6, 20)
+    # Por defecto martes es 08:00
+    assert alarm.get_alarm_time_for_date(tuesday) == (8, 0)
 
     # Override a las 09:15
     alarm.set_manual_alarm(tuesday, "09:15")

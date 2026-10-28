@@ -27,6 +27,6 @@ async def ultima_nota_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"📅 **Fecha:** `{date_str}`\n"
         f"💡 **Resumen:** {note.summary or 'Sin resumen'}\n"
         f"📂 **Ruta:** `{note.filepath}`\n\n"
-        f"_Disponible en tu app de Obsidian vía Syncthing._"
+        f"_Disponible en tu app de Obsidian._"
     )
     await update.message.reply_markdown(msg)

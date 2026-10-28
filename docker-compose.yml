@@ -21,8 +21,8 @@ services:
       - ./data:/app/data
       - ./credentials.json:/app/credentials.json:ro
       - ./token.json:/app/token.json
-      - /mnt/disco_1tb/obsidian_vault:/vault
-      - /mnt/disco_1tb/backups/lilo_hub:/backups
+      - ${HOST_VAULT_PATH:-./vault}:/vault
+      - ${HOST_BACKUPS_PATH:-./backups}:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   webdav:
@@ -33,5 +33,5 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /mnt/disco_1tb/obsidian_vault:/data
+      - ${HOST_VAULT_PATH:-./vault}:/data
       - ./webdav.yaml:/etc/webdav/config.yaml:ro

@@ -22,7 +22,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ Acceso denegado. Este es un servidor personal privado.")
         return
 
-    user_name = update.effective_user.first_name or "Renato"
+    user_name = update.effective_user.first_name or settings.USER_NAME
     msg = (
         f"👋 **¡Hola, {user_name}! Bienvenido a Lilo Hub.**\n\n"
         "Soy tu orquestador personal conectado a tu servidor 24/7, tu bóveda de Obsidian y tu Google Workspace.\n\n"

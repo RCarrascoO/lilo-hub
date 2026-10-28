@@ -15,7 +15,7 @@ def format_server_message() -> tuple[str, InlineKeyboardMarkup]:
     ram_bar = make_bar(ram["percent"])
 
     msg_lines = [
-        "🖥️ **ESTADO DEL SERVIDOR (`sanehost`)**",
+        "🖥️ **ESTADO DEL SERVIDOR**",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"**CPU ({metrics['cpu_count']} cores):** `{cpu}%`",
         f"**RAM:** `{ram['used_gb']}G / {ram['total_gb']}G` ({ram['percent']}%)",
